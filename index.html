@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scale Weight Monitor</title>
+  <style>
+    :root {
+      --bg: #121417;
+      --card: #1e2227;
+      --text: #f1f3f5;
+      --muted: #868e96;
+      --accent: #228be6;
+      --success: #40c057;
+      --danger: #fa5252;
+    }
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; padding: 16px;
+    }
+    .card {
+      background: var(--card); border-radius: 12px; padding: 24px;
+      width: 100%; max-width: 440px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    h1 { margin: 0 0 16px; font-size: 1.25rem; text-align: center; }
+    input, button {
+      width: 100%; padding: 14px; border-radius: 8px; border: none;
+      font-size: 1rem; margin-bottom: 12px;
+    }
+    input { background: #2c323a; color: var(--text); text-align: center; letter-spacing: 4px; font-size: 1.25rem; }
+    button { background: var(--accent); color: white; font-weight: 600; cursor: pointer; }
+    button:active { opacity: 0.85; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: #343a40; }
+    button.danger { background: var(--danger); }
+    .hidden { display: none !important; }
+    
+    /* Weight Display */
+    .status-bar {
+      display: flex; justify-content: space-between; font-size: 0.85rem;
+      color: var(--muted); margin-bottom: 12px;
+    }
+    .badge { padding: 2px 8px; border-radius: 4px; font-weight: 600; background: #343a40; }
+    .badge.connected { background: rgba(64, 192, 87, 0.2); color: var(--success); }
+    .weight-box {
+      background: #0d0f12; border-radius: 8px; padding: 24px 16px;
+      text-align: right; margin-bottom: 16px; border: 1px solid #2c323a;
+    }
+    .weight-value { font-size: 3.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .weight-unit { font-size: 1.25rem; color: var(--muted); margin-left: 6px; }
+    
+    /* Raw Serial Console for Debugging */
+    .console {
+      background: #0d0f12; color: #51cf66; font-family: monospace;
+      font-size: 0.8rem; height: 100px; overflow-y: auto;
+      padding: 8px; border-radius: 6px; margin-bottom: 12px;
+      border: 1px solid #2c323a;
+    }
+    .error { color: var(--danger); font-size: 0.9rem; text-align: center; margin-bottom: 10px; }
+    .note { color: var(--muted); font-size: 0.85rem; }
+    .history { max-height: 200px; overflow-y: auto; padding-left: 24px; }
+    .history li { margin-bottom: 8px; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+
+  <!-- 1. PASSCODE SCREEN -->
+  <div id="auth-screen" class="card">
+    <h1>Enter App PIN</h1>
+    <p style="font-size: 0.85rem; color: var(--muted); text-align: center;">
+      This local screen lock is a convenience only; it does not secure the app or its data.
+    </p>
+    <form id="auth-form">
+      <label for="pin-input">PIN</label>
+      <input type="password" id="pin-input" inputmode="numeric" autocomplete="current-password" placeholder="••••" maxlength="8" />
+      <div id="auth-error" class="error hidden" role="alert">Incorrect PIN</div>
+      <button id="unlock-btn" type="submit">Unlock</button>
+    </form>
+  </div>
+
+  <!-- 2. MAIN SCALE SCREEN -->
+  <div id="app-screen" class="card hidden">
+    <div class="status-bar">
+      <span>DSD-Tech SH-B32A</span>
+      <span id="conn-status" class="badge">Disconnected</span>
+    </div>
+
+    <div class="weight-box">
+      <span id="weight-display" class="weight-value">--</span>
+      <span id="unit-display" class="weight-unit">?</span>
+    </div>
+
+    <button id="connect-btn">Connect Bluetooth Scale</button>
+    <button id="disconnect-btn" class="danger hidden">Disconnect</button>
+    <button id="save-btn" disabled>Save reading</button>
+    <div id="save-status" class="note" role="status" aria-live="polite"></div>
+    <p class="note">Check the reading and unit before saving. The scale's data format still needs verification.</p>
+
+    <details>
+      <summary>Saved readings on this phone</summary>
+      <p class="note">Readings stay in this browser; they are not uploaded. Clearing browser data can erase them, so export backups regularly.</p>
+      <div id="history-status" class="note" role="status"></div>
+      <ol id="history-list" class="history"></ol>
+      <button id="export-btn" class="secondary" disabled>Export readings as CSV</button>
+    </details>
+
+    <p id="offline-status" class="note" role="status">Checking offline availability...</p>
+
+    <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Raw ASCII Stream:</div>
+    <div id="raw-console" class="console">Waiting for data...</div>
+
+    <button id="lock-btn" class="secondary" style="margin-bottom: 0;">Lock App</button>
+  </div>
+
+  <script>
+    // ==========================================
+    // 1. LOCAL CONVENIENCE LOCK (Default PIN: 1234; not security)
+    // ==========================================
+    // SHA-256 hash of "1234". Replace this hash to change the PIN.
+    const TARGET_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
+
+    const authScreen = document.getElementById("auth-screen");
+    const appScreen = document.getElementById("app-screen");
+    const pinInput = document.getElementById("pin-input");
+    const authError = document.getElementById("auth-error");
+
+    async function sha256(text) {
+      const data = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+      return Array.from(new Uint8Array(hashBuffer))
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("");
+    }
+
+    function showApp() {
+      authScreen.classList.add("hidden");
+      appScreen.classList.remove("hidden");
+    }
+
+    document.getElementById("auth-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        const hashed = await sha256(pinInput.value.trim());
+        if (hashed === TARGET_HASH) {
+          authError.classList.add("hidden");
+          pinInput.value = "";
+          showApp();
+          return;
+        }
+        authError.textContent = "Incorrect PIN";
+        authError.classList.remove("hidden");
+      } catch (err) {
+        authError.textContent = "Unable to unlock: " + err.message;
+        authError.classList.remove("hidden");
+      }
+    });
+
+    document.getElementById("lock-btn").addEventListener("click", () => {
+      appScreen.classList.add("hidden");
+      authScreen.classList.remove("hidden");
+      pinInput.focus();
+    });
+
+    // ==========================================
+    // 2. BLUETOOTH BLE UART (DSD-Tech SH-B32A)
+    // ==========================================
+    const BLE_SERVICE_UUID = 0xffe0;
+    const BLE_CHAR_UUID = 0xffe1;
+
+    let bleDevice = null;
+    let serialBuffer = "";
+
+    const connectBtn = document.getElementById("connect-btn");
+    const disconnectBtn = document.getElementById("disconnect-btn");
+    const connStatus = document.getElementById("conn-status");
+    const rawConsole = document.getElementById("raw-console");
+    const weightDisplay = document.getElementById("weight-display");
+    const unitDisplay = document.getElementById("unit-display");
+    const saveBtn = document.getElementById("save-btn");
+
+    connectBtn.addEventListener("click", async () => {
+      try {
+        if (!navigator.bluetooth) {
+          throw new Error("Web Bluetooth is unavailable. Use a supported browser such as Chrome on Android, over HTTPS or localhost.");
+        }
+        bleDevice = await navigator.bluetooth.requestDevice({
+          filters: [{ services: [BLE_SERVICE_UUID] }],
+          optionalServices: [BLE_SERVICE_UUID]
+        });
+
+        bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
+        const server = await bleDevice.gatt.connect();
+        const service = await server.getPrimaryService(BLE_SERVICE_UUID);
+        const characteristic = await service.getCharacteristic(BLE_CHAR_UUID);
+
+        serialBuffer = "";
+        weightDisplay.textContent = "--";
+        unitDisplay.textContent = "?";
+        saveBtn.disabled = true;
+        rawConsole.textContent = "";
+        characteristic.addEventListener("characteristicvaluechanged", handleBleChunk);
+        await characteristic.startNotifications();
+
+        connStatus.textContent = "Connected";
+        connStatus.classList.add("connected");
+        connectBtn.classList.add("hidden");
+        disconnectBtn.classList.remove("hidden");
+      } catch (err) {
+        if (bleDevice && bleDevice.gatt && bleDevice.gatt.connected) {
+          bleDevice.gatt.disconnect();
+        }
+        onDisconnected();
+        alert("Bluetooth Error: " + err.message);
+      }
+    });
+
+    disconnectBtn.addEventListener("click", () => {
+      if (bleDevice && bleDevice.gatt.connected) {
+        bleDevice.gatt.disconnect();
+      }
+    });
+
+    function onDisconnected() {
+      serialBuffer = "";
+      weightDisplay.textContent = "--";
+      unitDisplay.textContent = "?";
+      saveBtn.disabled = true;
+      connStatus.textContent = "Disconnected";
+      connStatus.classList.remove("connected");
+      connectBtn.classList.remove("hidden");
+      disconnectBtn.classList.add("hidden");
+    }
+
+    function handleBleChunk(event) {
+      const chunk = new TextDecoder().decode(event.target.value);
+      serialBuffer += chunk;
+
+      // Split stream by newline (\r\n or \n)
+      const lines = serialBuffer.split(/\r?\n/);
+      serialBuffer = lines.pop(); // Keep incomplete trailing fragment
+
+      for (const line of lines) {
+        if (line.trim().length > 0) {
+          onSerialLineReceived(line.trim());
+        }
+      }
+    }
+
+    // ==========================================
+    // 3. SHARED DATA PARSER (Reusable with Android Bridge)
+    // ==========================================
+    function onSerialLineReceived(line) {
+      // Log raw ASCII line so you can inspect your scale's exact format
+      const logEntry = document.createElement("div");
+      logEntry.textContent = line;
+      rawConsole.appendChild(logEntry);
+      if (rawConsole.children.length > 30) rawConsole.removeChild(rawConsole.firstChild);
+      rawConsole.scrollTop = rawConsole.scrollHeight;
+
+      // Extract numeric weight (handles signs like + or - and decimals)
+      const match = line.match(/([+-]?\s*\d+(?:\.\d+)?)\s*(kg|g|lb|t)?/i);
+      if (match) {
+        const numericVal = match[1].replace(/\s+/g, "");
+        const unit = match[2] || "?";
+        weightDisplay.textContent = numericVal;
+        unitDisplay.textContent = unit;
+        saveBtn.disabled = false;
+      }
+    }
+
+    // Saved readings remain in this browser on this device.
+    const READINGS_KEY = "scale_readings_v1";
+    const historyList = document.getElementById("history-list");
+    const historyStatus = document.getElementById("history-status");
+    const saveStatus = document.getElementById("save-status");
+    const exportBtn = document.getElementById("export-btn");
+
+    function loadReadings() {
+      const saved = localStorage.getItem(READINGS_KEY);
+      if (saved === null) return [];
+      const readings = JSON.parse(saved);
+      if (!Array.isArray(readings) || !readings.every(reading =>
+        reading && typeof reading.timestamp === "string" &&
+        !Number.isNaN(Date.parse(reading.timestamp)) &&
+        typeof reading.weight === "string" && /^[+-]?\d+(?:\.\d+)?$/.test(reading.weight) &&
+        typeof reading.unit === "string" && /^(?:kg|g|lb|t|\?)$/i.test(reading.unit)
+      )) {
+        throw new Error("Saved readings have an invalid format. Existing data was not changed.");
+      }
+      return readings;
+    }
+
+    function showHistory() {
+      try {
+        const readings = loadReadings();
+        historyList.replaceChildren();
+        for (const reading of readings.slice().reverse()) {
+          const item = document.createElement("li");
+          item.textContent = `${new Date(reading.timestamp).toLocaleString()}: ${reading.weight} ${reading.unit}`;
+          historyList.appendChild(item);
+        }
+        historyStatus.textContent = readings.length ? `${readings.length} saved reading(s).` : "No readings saved yet.";
+        exportBtn.disabled = readings.length === 0;
+      } catch (err) {
+        historyStatus.textContent = "Cannot read saved readings: " + err.message;
+        exportBtn.disabled = true;
+      }
+    }
+
+    saveBtn.addEventListener("click", () => {
+      try {
+        const readings = loadReadings();
+        readings.push({
+          timestamp: new Date().toISOString(),
+          weight: weightDisplay.textContent,
+          unit: unitDisplay.textContent
+        });
+        localStorage.setItem(READINGS_KEY, JSON.stringify(readings));
+        saveStatus.textContent = "Reading saved on this device.";
+        showHistory();
+      } catch (err) {
+        saveStatus.textContent = "Reading was not saved: " + err.message;
+      }
+    });
+
+    exportBtn.addEventListener("click", () => {
+      try {
+        const readings = loadReadings();
+        const rows = ["timestamp_utc,weight,unit", ...readings.map(reading =>
+          [reading.timestamp, reading.weight, reading.unit].join(",")
+        )];
+        const url = URL.createObjectURL(new Blob([rows.join("\r\n") + "\r\n"], { type: "text/csv" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "scale-readings.csv";
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        historyStatus.textContent = "Export started. Check your downloads and back up the file.";
+      } catch (err) {
+        historyStatus.textContent = "Export failed: " + err.message;
+      }
+    });
+
+    showHistory();
+
+    const offlineStatus = document.getElementById("offline-status");
+    if ("serviceWorker" in navigator && window.isSecureContext) {
+      navigator.serviceWorker.register("./service-worker.js")
+        .then(() => navigator.serviceWorker.ready)
+        .then(async registration => {
+          const cached = await caches.match(registration.scope);
+          if (!cached) throw new Error("No offline copy found. Connect to the internet and reload.");
+          offlineStatus.textContent = "Offline copy ready. Open this page online once on each phone before going offline.";
+        })
+        .catch(err => {
+          offlineStatus.textContent = "Offline setup failed: " + err.message;
+        });
+    } else {
+      offlineStatus.textContent = "Offline setup unavailable. Open this page over HTTPS or localhost in a supported browser.";
+    }
+  </script>
+</body>
+</html>
