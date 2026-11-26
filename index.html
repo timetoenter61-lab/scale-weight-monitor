@@ -66,22 +66,10 @@
 </head>
 <body>
 
-  <!-- 1. PASSCODE SCREEN -->
-  <div id="auth-screen" class="card">
-    <h1>Enter App PIN</h1>
-    <p style="font-size: 0.85rem; color: var(--muted); text-align: center;">
-      This local screen lock is a convenience only; it does not secure the app or its data.
-    </p>
-    <form id="auth-form">
-      <label for="pin-input">PIN</label>
-      <input type="password" id="pin-input" inputmode="numeric" autocomplete="current-password" placeholder="••••" maxlength="8" />
-      <div id="auth-error" class="error hidden" role="alert">Incorrect PIN</div>
-      <button id="unlock-btn" type="submit">Unlock</button>
-    </form>
-  </div>
+  <!-- 1. PASSCODE SCREEN - REMOVED FOR DEBUGGING -->
 
   <!-- 2. MAIN SCALE SCREEN -->
-  <div id="app-screen" class="card hidden">
+  <div id="app-screen" class="card">
     <div class="status-bar">
       <span>DSD-Tech SH-B32A</span>
       <span id="conn-status" class="badge">Disconnected</span>
@@ -115,42 +103,6 @@
   </div>
 
   <script>
-    // ==========================================
-    // 1. LOCAL CONVENIENCE LOCK (Default PIN: 1234; not security)
-    // ==========================================
-    // SHA-256 hash of "1234". Replace this hash to change the PIN.
-    const TARGET_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
-
-    const authScreen = document.getElementById("auth-screen");
-    const appScreen = document.getElementById("app-screen");
-    const pinInput = document.getElementById("pin-input");
-    const authError = document.getElementById("auth-error");
-
-    async function sha256(text) {
-      const data = new TextEncoder().encode(text);
-      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-      return Array.from(new Uint8Array(hashBuffer))
-        .map(b => b.toString(16).padStart(2, "0"))
-        .join("");
-    }
-
-    function showApp() {
-      authScreen.classList.add("hidden");
-      appScreen.classList.remove("hidden");
-    }
-
-    document.getElementById("auth-form").addEventListener("submit", async (event) => {
-      event.preventDefault();
-      // Temporarily disabled for debugging - PIN will be re-enabled later
-      showApp();
-    });
-
-    document.getElementById("lock-btn").addEventListener("click", () => {
-      appScreen.classList.add("hidden");
-      authScreen.classList.remove("hidden");
-      pinInput.focus();
-    });
-
     // ==========================================
     // 2. BLUETOOTH BLE UART (DSD-Tech SH-B32A)
     // ==========================================
