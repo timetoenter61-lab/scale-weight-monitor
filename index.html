@@ -140,8 +140,8 @@
         addDebugMessage("Requesting device...");
         
         bleDevice = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: [0xffe0, 0x6e0, 0x180a, 0x180f]
+          acceptAllDevices: true
+          // Removed optionalServices - try without restrictions
         });
         addDebugMessage("Device selected: " + (bleDevice.name || "unnamed"));
         
