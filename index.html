@@ -139,9 +139,8 @@
       appScreen.classList.remove("hidden");
     }
 
-    document.getElementById("auth-form").addEventListener("submit", async (event) => {
-      event.preventDefault();
-      // Temporarily disabled for debugging - PIN will be re-enabled later
+    // Auto-unlock on page load
+    window.addEventListener("load", () => {
       showApp();
     });
 
