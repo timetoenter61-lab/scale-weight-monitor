@@ -142,13 +142,8 @@
         bleDevice = await navigator.bluetooth.requestDevice({
           filters: [
             { namePrefix: "SH" }
-          ],
-          optionalServices: [
-            "0000ffe0-0000-1000-8000-00805f9b34fb",
-            "0000ffe1-0000-1000-8000-00805f9b34fb",
-            0xffe0, 0xffe1, 0x180a, 0x180f,
-            "generic_access", "generic_attribute"
           ]
+          // No optionalServices - let it connect to any service
         });
         addDebugMessage("Device selected: " + (bleDevice.name || "unnamed"));
         
