@@ -133,7 +133,9 @@
         console.log("Requesting BLE device...");
         
         bleDevice = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
+          filters: [
+            { namePrefix: "SH" }  // Look specifically for SH B30
+          ],
           optionalServices: [0xffe0, 0x6e0, 0x180a, 0x180f]
         });
         console.log("Device selected:", bleDevice.name, "ID:", bleDevice.id);
