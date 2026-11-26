@@ -131,7 +131,7 @@
           throw new Error("Web Bluetooth is unavailable. Use a supported browser such as Chrome on Android, over HTTPS or localhost.");
         }
         console.log("Requesting BLE device...");
-        // Accept ALL devices so we can see what's actually broadcasting
+        
         bleDevice = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true
         });
@@ -141,18 +141,13 @@
         const server = await bleDevice.gatt.connect();
         console.log("Connected to GATT server");
         
-        // Discover all services
         const services = await server.getPrimaryServices();
-        console.log("Available services:", services.map(s => ({
-          uuid: s.uuid,
-          isPrimary: s.isPrimary
-        })));
+        console.log("Available services:", services.map(s => s.uuid));
         
-        // Try to find the UART service (0xffe0 or similar)
         let uartService = services.find(s => s.uuid.includes("ffe0") || s.uuid.includes("6e40"));
         if (!uartService) {
-          uartService = services[0]; // Try first service if 0xffe0 not found
-          console.log("0xffe0 not found, trying first service:", uartService.uuid);
+          uartService = services[0];
+          console.log("0xffe0 not found, using first service:", uartService.uuid);
         }
         
         const characteristics = await uartService.getCharacteristics();
@@ -160,11 +155,6 @@
         
         const characteristic = characteristics.find(c => c.uuid.includes("ffe1") || c.uuid.includes("6e41")) || characteristics[0];
         console.log("Using characteristic:", characteristic.uuid);
-
-        bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
-        const server = await bleDevice.gatt.connect();
-        const service = await server.getPrimaryService(BLE_SERVICE_UUID);
-        const characteristic = await service.getCharacteristic(BLE_CHAR_UUID);
 
         serialBuffer = "";
         weightDisplay.textContent = "--";
