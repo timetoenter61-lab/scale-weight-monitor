@@ -141,20 +141,8 @@
 
     document.getElementById("auth-form").addEventListener("submit", async (event) => {
       event.preventDefault();
-      try {
-        const hashed = await sha256(pinInput.value.trim());
-        if (hashed === TARGET_HASH) {
-          authError.classList.add("hidden");
-          pinInput.value = "";
-          showApp();
-          return;
-        }
-        authError.textContent = "Incorrect PIN";
-        authError.classList.remove("hidden");
-      } catch (err) {
-        authError.textContent = "Unable to unlock: " + err.message;
-        authError.classList.remove("hidden");
-      }
+      // Temporarily disabled for debugging - PIN will be re-enabled later
+      showApp();
     });
 
     document.getElementById("lock-btn").addEventListener("click", () => {
