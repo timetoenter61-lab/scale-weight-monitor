@@ -96,8 +96,7 @@
 
     <p id="offline-status" class="note" role="status">Checking offline availability...</p>
 
-    <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Raw ASCII Stream:</div>
-    <div id="raw-console" class="console">Waiting for data...</div>
+    <div id="debug-log" style="background: #0d0f12; color: #ff6b6b; font-family: monospace; font-size: 0.75rem; padding: 8px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #2c323a; max-height: 150px; overflow-y: auto;">Debug messages will appear here...</div>
 
     <button id="lock-btn" class="secondary" style="margin-bottom: 0;">Lock App</button>
   </div>
@@ -122,37 +121,39 @@
     const weightDisplay = document.getElementById("weight-display");
     const unitDisplay = document.getElementById("unit-display");
     const saveBtn = document.getElementById("save-btn");
+    const debugLog = document.getElementById("debug-log");
+    
+    function addDebugMessage(msg) {
+      const line = document.createElement("div");
+      line.textContent = new Date().toLocaleTimeString() + ": " + msg;
+      debugLog.appendChild(line);
+      debugLog.scrollTop = debugLog.scrollHeight;
+      if (debugLog.children.length > 20) debugLog.removeChild(debugLog.firstChild);
+      console.log(msg);
+    }
+    
+    addDebugMessage("App loaded!");
 
     connectBtn.addEventListener("click", async () => {
-      console.log("Connect button clicked!");
+      addDebugMessage("Connect button clicked!");
       try {
-        console.log("Checking navigator.bluetooth...");
-        if (!navigator.bluetooth) {
-          throw new Error("Web Bluetooth is unavailable. Use a supported browser such as Chrome on Android, over HTTPS or localhost.");
-        }
-        console.log("Requesting BLE device...");
+        addDebugMessage("Requesting device...");
         
         bleDevice = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true,
           optionalServices: [0xffe0, 0x6e0, 0x180a, 0x180f]
         });
-        console.log("Device selected:", bleDevice.name, "ID:", bleDevice.id);
-        
-        // Check if this looks like the right device
-        const deviceName = (bleDevice.name || "").toLowerCase();
-        if (!deviceName.includes("sh") && !deviceName.includes("dsd") && deviceName.length > 0) {
-          console.warn("Device doesn't look like SH B30, but proceeding anyway");
-        }
+        addDebugMessage("Device selected: " + (bleDevice.name || "unnamed"));
         
         bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
         const server = await bleDevice.gatt.connect();
-        console.log("Connected to GATT server");
+        addDebugMessage("Connected to GATT server");
         
         // Get ALL services to see what's available
         const services = await server.getPrimaryServices();
-        console.log("All services found:", services.length);
+        addDebugMessage("Found " + services.length + " services");
         for (const svc of services) {
-          console.log("Service UUID:", svc.uuid);
+          addDebugMessage("Service: " + svc.uuid);
         }
         
         let uartService = services.find(s => s.uuid.includes("ffe0") || s.uuid.includes("6e40"));
@@ -180,12 +181,11 @@
         connectBtn.classList.add("hidden");
         disconnectBtn.classList.remove("hidden");
       } catch (err) {
-        console.error("Connection error:", err);
+        addDebugMessage("ERROR: " + err.message);
         if (bleDevice && bleDevice.gatt && bleDevice.gatt.connected) {
           bleDevice.gatt.disconnect();
         }
         onDisconnected();
-        alert("Bluetooth Error: " + err.message);
       }
     });
 
