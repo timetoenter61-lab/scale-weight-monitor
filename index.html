@@ -140,8 +140,13 @@
         addDebugMessage("Requesting device...");
         
         bleDevice = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true
-          // Removed optionalServices - try without restrictions
+          acceptAllDevices: true,
+          optionalServices: [
+            "0000ffe0-0000-1000-8000-00805f9b34fb",  // DSD-Tech UART TX
+            "0000ffe1-0000-1000-8000-00805f9b34fb",  // DSD-Tech UART RX
+            0xffe0, 0xffe1, 0x180a, 0x180f,
+            "generic_access", "generic_attribute"
+          ]
         });
         addDebugMessage("Device selected: " + (bleDevice.name || "unnamed"));
         
