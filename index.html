@@ -148,12 +148,20 @@
         addDebugMessage("Device selected: " + (bleDevice.name || "unnamed"));
         
         bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
-        const server = await bleDevice.gatt.connect();
-        addDebugMessage("Connected to GATT server");
         
-        // Get ALL services to see what's available
+        addDebugMessage("Attempting GATT connection...");
+        let server;
+        try {
+          server = await bleDevice.gatt.connect();
+          addDebugMessage("✓ Connected to GATT server");
+        } catch (gattErr) {
+          addDebugMessage("GATT error: " + gattErr.message);
+          throw gattErr;
+        }
+        
+        addDebugMessage("Reading primary services...");
         const services = await server.getPrimaryServices();
-        addDebugMessage("Found " + services.length + " services");
+        addDebugMessage("✓ Found " + services.length + " services");
         for (const svc of services) {
           addDebugMessage("Service: " + svc.uuid);
         }
