@@ -133,7 +133,8 @@
         console.log("Requesting BLE device...");
         
         bleDevice = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true
+          acceptAllDevices: true,
+          optionalServices: [0xffe0, 0x6e0, 0x180a, 0x180f] // Common BLE service UUIDs
         });
         console.log("Device selected:", bleDevice.name);
         
