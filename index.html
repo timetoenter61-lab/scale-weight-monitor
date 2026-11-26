@@ -134,16 +134,20 @@
         
         bleDevice = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true,
-          optionalServices: [0xffe0, 0x6e0, 0x180a, 0x180f] // Common BLE service UUIDs
+          optionalServices: [0xffe0, 0x6e0, 0x180a, 0x180f]
         });
-        console.log("Device selected:", bleDevice.name);
+        console.log("Device selected:", bleDevice.name, "ID:", bleDevice.id);
         
         bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
         const server = await bleDevice.gatt.connect();
         console.log("Connected to GATT server");
         
+        // Get ALL services to see what's available
         const services = await server.getPrimaryServices();
-        console.log("Available services:", services.map(s => s.uuid));
+        console.log("All services found:", services.length);
+        for (const svc of services) {
+          console.log("Service UUID:", svc.uuid);
+        }
         
         let uartService = services.find(s => s.uuid.includes("ffe0") || s.uuid.includes("6e40"));
         if (!uartService) {
