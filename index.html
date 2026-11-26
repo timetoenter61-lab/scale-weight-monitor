@@ -103,6 +103,8 @@
   </div>
 
   <script>
+    console.log("🚀 Script loaded!");
+    
     // ==========================================
     // 2. BLUETOOTH BLE UART (DSD-Tech SH-B32A)
     // ==========================================
@@ -113,6 +115,7 @@
     let serialBuffer = "";
 
     const connectBtn = document.getElementById("connect-btn");
+    console.log("connectBtn found:", connectBtn);
     const disconnectBtn = document.getElementById("disconnect-btn");
     const connStatus = document.getElementById("conn-status");
     const rawConsole = document.getElementById("raw-console");
