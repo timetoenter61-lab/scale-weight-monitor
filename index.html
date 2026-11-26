@@ -133,12 +133,16 @@
         console.log("Requesting BLE device...");
         
         bleDevice = await navigator.bluetooth.requestDevice({
-          filters: [
-            { namePrefix: "SH" }  // Look specifically for SH B30
-          ],
+          acceptAllDevices: true,
           optionalServices: [0xffe0, 0x6e0, 0x180a, 0x180f]
         });
         console.log("Device selected:", bleDevice.name, "ID:", bleDevice.id);
+        
+        // Check if this looks like the right device
+        const deviceName = (bleDevice.name || "").toLowerCase();
+        if (!deviceName.includes("sh") && !deviceName.includes("dsd") && deviceName.length > 0) {
+          console.warn("Device doesn't look like SH B30, but proceeding anyway");
+        }
         
         bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
         const server = await bleDevice.gatt.connect();
