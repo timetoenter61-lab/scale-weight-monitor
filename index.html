@@ -3,293 +3,140 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#111827" />
   <title>Scale Weight Monitor</title>
   <style>
     :root {
-      --bg: #121417;
-      --card: #1e2227;
-      --text: #f1f3f5;
-      --muted: #868e96;
-      --accent: #228be6;
-      --success: #40c057;
-      --danger: #fa5252;
+      color-scheme: dark;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #111827;
+      color: #f3f4f6;
     }
-    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
-    body {
-      margin: 0; background: var(--bg); color: var(--text);
-      display: flex; justify-content: center; align-items: center;
-      min-height: 100vh; padding: 16px;
-    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px 16px 40px; }
+    main { max-width: 480px; margin: 0 auto; }
+    h1 { margin: 0 0 8px; font-size: 1.5rem; }
+    h2 { margin: 0 0 12px; font-size: 1.1rem; }
+    p { line-height: 1.5; }
+    .intro, .note { color: #b6c2d2; }
+    .intro { margin: 0 0 24px; }
+    .note { font-size: 0.9rem; }
     .card {
-      background: var(--card); border-radius: 12px; padding: 24px;
-      width: 100%; max-width: 440px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      background: #1f2937; border: 1px solid #374151;
+      border-radius: 14px; padding: 20px; margin-bottom: 16px;
     }
-    h1 { margin: 0 0 16px; font-size: 1.25rem; text-align: center; }
-    input, button {
-      width: 100%; padding: 14px; border-radius: 8px; border: none;
-      font-size: 1rem; margin-bottom: 12px;
+    .reading {
+      display: flex; justify-content: center; align-items: baseline;
+      flex-wrap: wrap; gap: 8px; padding: 22px 0; text-align: center;
+      overflow-wrap: anywhere;
     }
-    input { background: #2c323a; color: var(--text); text-align: center; letter-spacing: 4px; font-size: 1.25rem; }
-    button { background: var(--accent); color: white; font-weight: 600; cursor: pointer; }
-    button:active { opacity: 0.85; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    button.secondary { background: #343a40; }
-    button.danger { background: var(--danger); }
-    .hidden { display: none !important; }
-    
-    /* Weight Display */
-    .status-bar {
-      display: flex; justify-content: space-between; font-size: 0.85rem;
-      color: var(--muted); margin-bottom: 12px;
+    .weight { font-size: clamp(2.5rem, 11vw, 4rem); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .unit { font-size: 1.3rem; color: #b6c2d2; }
+    button {
+      width: 100%; padding: 14px; border: 0; border-radius: 8px;
+      font: inherit; font-weight: 700; cursor: pointer;
+      color: #fff; background: #2563eb;
     }
-    .badge { padding: 2px 8px; border-radius: 4px; font-weight: 600; background: #343a40; }
-    .badge.connected { background: rgba(64, 192, 87, 0.2); color: var(--success); }
-    .weight-box {
-      background: #0d0f12; border-radius: 8px; padding: 24px 16px;
-      text-align: right; margin-bottom: 16px; border: 1px solid #2c323a;
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.secondary { background: #374151; }
+    button:focus-visible, summary:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+    .status { min-height: 1.5em; margin: 12px 0 0; }
+    .history { max-height: 240px; overflow-y: auto; padding-left: 24px; }
+    .history li { padding: 4px 0; overflow-wrap: anywhere; }
+    details summary { cursor: pointer; font-weight: 600; }
+    .raw, .csv {
+      white-space: pre-wrap; overflow-wrap: anywhere; max-height: 180px; overflow-y: auto;
+      padding: 12px; border-radius: 8px; background: #111827; color: #d1fae5;
+      font: 0.85rem/1.5 monospace;
     }
-    .weight-value { font-size: 3.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .weight-unit { font-size: 1.25rem; color: var(--muted); margin-left: 6px; }
-    
-    /* Raw Serial Console for Debugging */
-    .console {
-      background: #0d0f12; color: #51cf66; font-family: monospace;
-      font-size: 0.8rem; height: 100px; overflow-y: auto;
-      padding: 8px; border-radius: 6px; margin-bottom: 12px;
-      border: 1px solid #2c323a;
-    }
-    .error { color: var(--danger); font-size: 0.9rem; text-align: center; margin-bottom: 10px; }
-    .note { color: var(--muted); font-size: 0.85rem; }
-    .history { max-height: 200px; overflow-y: auto; padding-left: 24px; }
-    .history li { margin-bottom: 8px; overflow-wrap: anywhere; }
+    .csv { user-select: text; }
   </style>
 </head>
 <body>
+  <main>
+    <header>
+      <h1>Scale Weight Monitor</h1>
+      <p class="intro">Connect your scale in the RS232 ASCII Reader app. Open this page in its Web tab, then tap <strong>Fill Web Field</strong>.</p>
+    </header>
 
-  <!-- 1. PASSCODE SCREEN - REMOVED FOR DEBUGGING -->
+    <section class="card" aria-labelledby="reading-heading">
+      <h2 id="reading-heading">Current reading</h2>
+      <div class="reading" aria-live="polite">
+        <span id="weight-display" class="weight">--</span>
+        <span id="unit-display" class="unit">?</span>
+      </div>
+      <p id="transfer-status" class="note" role="status">Waiting for a reading from the app.</p>
+      <p class="note">Check the weight and unit before saving. The scale's data format still needs verification.</p>
+      <button id="save-btn" disabled>Save reading</button>
+      <p id="save-status" class="note status" role="status"></p>
+    </section>
 
-  <!-- 2. MAIN SCALE SCREEN -->
-  <div id="app-screen" class="card">
-    <div class="status-bar">
-      <span>DSD-Tech SH-B32A</span>
-      <span id="conn-status" class="badge">Disconnected</span>
-    </div>
-
-    <div class="weight-box">
-      <span id="weight-display" class="weight-value">--</span>
-      <span id="unit-display" class="weight-unit">?</span>
-    </div>
-
-    <button id="connect-btn">Connect Bluetooth Scale</button>
-    <button id="disconnect-btn" class="danger hidden">Disconnect</button>
-    <button id="save-btn" disabled>Save reading</button>
-    <div id="save-status" class="note" role="status" aria-live="polite"></div>
-    <p class="note">Using RS232 ASCII Reader? Open this page in its Web tab, then tap Fill Web Field to transfer the latest reading. Check it below and tap Save reading.</p>
-    <div id="transfer-status" class="note" role="status" aria-live="polite"></div>
-    <p class="note">Check the reading and unit before saving. The scale's data format still needs verification.</p>
-
-    <details>
-      <summary>Saved readings on this phone</summary>
-      <p class="note">Readings stay in this browser; they are not uploaded. Clearing browser data can erase them, so export backups regularly.</p>
-      <div id="history-status" class="note" role="status"></div>
+    <section class="card" aria-labelledby="history-heading">
+      <h2 id="history-heading">Saved readings</h2>
+      <p class="note">Readings stay in this app's web storage and are not uploaded. Clearing its data can erase them; export backups regularly.</p>
+      <p id="history-status" class="note" role="status"></p>
       <ol id="history-list" class="history"></ol>
       <button id="export-btn" class="secondary" disabled>Export readings as CSV</button>
+      <div id="csv-backup" hidden>
+        <p class="note">If the download does not start in the app, select and copy the CSV below to save it elsewhere.</p>
+        <pre id="csv-content" class="csv"></pre>
+      </div>
+    </section>
+
+    <details class="card">
+      <summary>Raw scale data</summary>
+      <p class="note">The most recent ASCII readings received from the app appear here.</p>
+      <div id="raw-console" class="raw">No data received yet.</div>
     </details>
 
     <p id="offline-status" class="note" role="status">Checking offline availability...</p>
-
-    <details>
-      <summary>Raw scale data</summary>
-      <div id="raw-console" class="console"></div>
-    </details>
-
-    <div id="debug-log" style="background: #0d0f12; color: #ff6b6b; font-family: monospace; font-size: 0.75rem; padding: 8px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #2c323a; max-height: 150px; overflow-y: auto;">Debug messages will appear here...</div>
-
-    <button id="lock-btn" class="secondary" style="margin-bottom: 0;">Lock App</button>
-  </div>
+  </main>
 
   <script>
-    console.log("🚀 Script loaded!");
-    
-    // ==========================================
-    // 2. BLUETOOTH BLE UART (DSD-Tech SH-B32A)
-    // ==========================================
-    const BLE_SERVICE_UUID = 0xffe0;
-    const BLE_CHAR_UUID = 0xffe1;
-
-    let bleDevice = null;
-    let serialBuffer = "";
-
-    const connectBtn = document.getElementById("connect-btn");
-    console.log("connectBtn found:", connectBtn);
-    const disconnectBtn = document.getElementById("disconnect-btn");
-    const connStatus = document.getElementById("conn-status");
-    const rawConsole = document.getElementById("raw-console");
+    const READINGS_KEY = "scale_readings_v1";
     const weightDisplay = document.getElementById("weight-display");
     const unitDisplay = document.getElementById("unit-display");
-    const saveBtn = document.getElementById("save-btn");
-    const debugLog = document.getElementById("debug-log");
     const transferStatus = document.getElementById("transfer-status");
-    
-    function addDebugMessage(msg) {
-      const line = document.createElement("div");
-      line.textContent = new Date().toLocaleTimeString() + ": " + msg;
-      debugLog.appendChild(line);
-      debugLog.scrollTop = debugLog.scrollHeight;
-      if (debugLog.children.length > 20) debugLog.removeChild(debugLog.firstChild);
-      console.log(msg);
-    }
-    
-    addDebugMessage("App loaded!");
+    const saveBtn = document.getElementById("save-btn");
+    const saveStatus = document.getElementById("save-status");
+    const historyList = document.getElementById("history-list");
+    const historyStatus = document.getElementById("history-status");
+    const exportBtn = document.getElementById("export-btn");
+    const rawConsole = document.getElementById("raw-console");
+    const csvBackup = document.getElementById("csv-backup");
+    const csvContent = document.getElementById("csv-content");
+    const rawReadings = [];
 
-    connectBtn.addEventListener("click", async () => {
-      addDebugMessage("Connect button clicked!");
-      try {
-        addDebugMessage("Requesting device...");
-        
-        bleDevice = await navigator.bluetooth.requestDevice({
-          filters: [
-            { namePrefix: "SH" }
-          ]
-          // No optionalServices - let it connect to any service
-        });
-        addDebugMessage("Device selected: " + (bleDevice.name || "unnamed"));
-        
-        bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
-        
-        addDebugMessage("Attempting GATT connection...");
-        let server;
-        try {
-          server = await bleDevice.gatt.connect();
-          addDebugMessage("✓ Connected to GATT server");
-        } catch (gattErr) {
-          addDebugMessage("GATT error: " + gattErr.message);
-          throw gattErr;
-        }
-        
-        addDebugMessage("Reading primary services...");
-        const services = await server.getPrimaryServices();
-        addDebugMessage("✓ Found " + services.length + " services");
-        for (const svc of services) {
-          addDebugMessage("Service: " + svc.uuid);
-        }
-        
-        let uartService = services.find(s => s.uuid.includes("ffe0") || s.uuid.includes("6e40"));
-        if (!uartService) {
-          uartService = services[0];
-          console.log("0xffe0 not found, using first service:", uartService.uuid);
-        }
-        
-        const characteristics = await uartService.getCharacteristics();
-        console.log("Service characteristics:", characteristics.map(c => c.uuid));
-        
-        const characteristic = characteristics.find(c => c.uuid.includes("ffe1") || c.uuid.includes("6e41")) || characteristics[0];
-        console.log("Using characteristic:", characteristic.uuid);
-
-        serialBuffer = "";
-        weightDisplay.textContent = "--";
-        unitDisplay.textContent = "?";
-        saveBtn.disabled = true;
-        rawConsole.textContent = "";
-        characteristic.addEventListener("characteristicvaluechanged", handleBleChunk);
-        await characteristic.startNotifications();
-
-        connStatus.textContent = "Connected";
-        connStatus.classList.add("connected");
-        connectBtn.classList.add("hidden");
-        disconnectBtn.classList.remove("hidden");
-      } catch (err) {
-        addDebugMessage("ERROR: " + err.message);
-        addDebugMessage("Error name: " + err.name);
-        addDebugMessage("Full error: " + JSON.stringify(err));
-        if (bleDevice && bleDevice.gatt && bleDevice.gatt.connected) {
-          bleDevice.gatt.disconnect();
-        }
-        onDisconnected();
-      }
-    });
-
-    disconnectBtn.addEventListener("click", () => {
-      if (bleDevice && bleDevice.gatt.connected) {
-        bleDevice.gatt.disconnect();
-      }
-    });
-
-    function onDisconnected() {
-      serialBuffer = "";
-      weightDisplay.textContent = "--";
-      unitDisplay.textContent = "?";
-      saveBtn.disabled = true;
-      connStatus.textContent = "Disconnected";
-      connStatus.classList.remove("connected");
-      connectBtn.classList.remove("hidden");
-      disconnectBtn.classList.add("hidden");
-    }
-
-    function handleBleChunk(event) {
-      const chunk = new TextDecoder().decode(event.target.value);
-      serialBuffer += chunk;
-
-      // Split stream by newline (\r\n or \n)
-      const lines = serialBuffer.split(/\r?\n/);
-      serialBuffer = lines.pop(); // Keep incomplete trailing fragment
-
-      for (const line of lines) {
-        if (line.trim().length > 0) {
-          onSerialLineReceived(line.trim());
-        }
-      }
-    }
-
-    // ==========================================
-    // 3. SHARED DATA PARSER (Reusable with Android Bridge)
-    // ==========================================
     window.onScaleDataReceived = function (value, rawAscii) {
+      saveStatus.textContent = "";
       if (typeof rawAscii !== "string" || !rawAscii.trim()) {
         weightDisplay.textContent = "--";
         unitDisplay.textContent = "?";
         saveBtn.disabled = true;
-        transferStatus.textContent = "No ASCII reading received from the Android app.";
+        transferStatus.textContent = "No ASCII reading received from the app.";
         return;
       }
 
-      if (onSerialLineReceived(rawAscii.trim())) {
-        transferStatus.textContent = "Reading received from the Android app. Check it before saving.";
-      } else {
+      const line = rawAscii.trim();
+      rawReadings.push(line);
+      if (rawReadings.length > 30) rawReadings.shift();
+      rawConsole.textContent = rawReadings.join("\n");
+      rawConsole.scrollTop = rawConsole.scrollHeight;
+
+      const match = line.match(/([+-]?\s*\d+(?:\.\d+)?)\s*(kg|g|lb|t)?/i);
+      if (!match) {
         weightDisplay.textContent = "--";
         unitDisplay.textContent = "?";
         saveBtn.disabled = true;
-        transferStatus.textContent = "Could not find a weight in the Android app's ASCII reading.";
+        transferStatus.textContent = "Could not find a weight in the app's ASCII reading. Check Raw scale data.";
+        return;
       }
+
+      weightDisplay.textContent = match[1].replace(/\s+/g, "");
+      unitDisplay.textContent = match[2] || "?";
+      saveBtn.disabled = false;
+      transferStatus.textContent = "Reading received from the app.";
     };
-
-    function onSerialLineReceived(line) {
-      // Log raw ASCII line so you can inspect your scale's exact format
-      const logEntry = document.createElement("div");
-      logEntry.textContent = line;
-      rawConsole.appendChild(logEntry);
-      if (rawConsole.children.length > 30) rawConsole.removeChild(rawConsole.firstChild);
-      rawConsole.scrollTop = rawConsole.scrollHeight;
-
-      // Extract numeric weight (handles signs like + or - and decimals)
-      const match = line.match(/([+-]?\s*\d+(?:\.\d+)?)\s*(kg|g|lb|t)?/i);
-      if (match) {
-        const numericVal = match[1].replace(/\s+/g, "");
-        const unit = match[2] || "?";
-        weightDisplay.textContent = numericVal;
-        unitDisplay.textContent = unit;
-        saveBtn.disabled = false;
-        return true;
-      }
-      return false;
-    }
-
-    // Saved readings remain in this browser on this device.
-    const READINGS_KEY = "scale_readings_v1";
-    const historyList = document.getElementById("history-list");
-    const historyStatus = document.getElementById("history-status");
-    const saveStatus = document.getElementById("save-status");
-    const exportBtn = document.getElementById("export-btn");
 
     function loadReadings() {
       const saved = localStorage.getItem(READINGS_KEY);
@@ -318,6 +165,7 @@
         historyStatus.textContent = readings.length ? `${readings.length} saved reading(s).` : "No readings saved yet.";
         exportBtn.disabled = readings.length === 0;
       } catch (err) {
+        historyList.replaceChildren();
         historyStatus.textContent = "Cannot read saved readings: " + err.message;
         exportBtn.disabled = true;
       }
@@ -332,6 +180,7 @@
           unit: unitDisplay.textContent
         });
         localStorage.setItem(READINGS_KEY, JSON.stringify(readings));
+        csvBackup.hidden = true;
         saveStatus.textContent = "Reading saved on this device.";
         showHistory();
       } catch (err) {
@@ -345,13 +194,16 @@
         const rows = ["timestamp_utc,weight,unit", ...readings.map(reading =>
           [reading.timestamp, reading.weight, reading.unit].join(",")
         )];
-        const url = URL.createObjectURL(new Blob([rows.join("\r\n") + "\r\n"], { type: "text/csv" }));
+        const csv = rows.join("\r\n") + "\r\n";
+        csvContent.textContent = csv;
+        csvBackup.hidden = false;
+        const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
         const link = document.createElement("a");
         link.href = url;
         link.download = "scale-readings.csv";
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
-        historyStatus.textContent = "Export started. Check your downloads and back up the file.";
+        historyStatus.textContent = "CSV ready below. If a download started, check your downloads and back up the file.";
       } catch (err) {
         historyStatus.textContent = "Export failed: " + err.message;
       }
