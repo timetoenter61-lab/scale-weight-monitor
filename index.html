@@ -84,6 +84,8 @@
     <button id="disconnect-btn" class="danger hidden">Disconnect</button>
     <button id="save-btn" disabled>Save reading</button>
     <div id="save-status" class="note" role="status" aria-live="polite"></div>
+    <p class="note">Using RS232 ASCII Reader? Open this page in its Web tab, then tap Fill Web Field to transfer the latest reading. Check it below and tap Save reading.</p>
+    <div id="transfer-status" class="note" role="status" aria-live="polite"></div>
     <p class="note">Check the reading and unit before saving. The scale's data format still needs verification.</p>
 
     <details>
@@ -95,6 +97,11 @@
     </details>
 
     <p id="offline-status" class="note" role="status">Checking offline availability...</p>
+
+    <details>
+      <summary>Raw scale data</summary>
+      <div id="raw-console" class="console"></div>
+    </details>
 
     <div id="debug-log" style="background: #0d0f12; color: #ff6b6b; font-family: monospace; font-size: 0.75rem; padding: 8px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #2c323a; max-height: 150px; overflow-y: auto;">Debug messages will appear here...</div>
 
@@ -122,6 +129,7 @@
     const unitDisplay = document.getElementById("unit-display");
     const saveBtn = document.getElementById("save-btn");
     const debugLog = document.getElementById("debug-log");
+    const transferStatus = document.getElementById("transfer-status");
     
     function addDebugMessage(msg) {
       const line = document.createElement("div");
@@ -236,6 +244,25 @@
     // ==========================================
     // 3. SHARED DATA PARSER (Reusable with Android Bridge)
     // ==========================================
+    window.onScaleDataReceived = function (value, rawAscii) {
+      if (typeof rawAscii !== "string" || !rawAscii.trim()) {
+        weightDisplay.textContent = "--";
+        unitDisplay.textContent = "?";
+        saveBtn.disabled = true;
+        transferStatus.textContent = "No ASCII reading received from the Android app.";
+        return;
+      }
+
+      if (onSerialLineReceived(rawAscii.trim())) {
+        transferStatus.textContent = "Reading received from the Android app. Check it before saving.";
+      } else {
+        weightDisplay.textContent = "--";
+        unitDisplay.textContent = "?";
+        saveBtn.disabled = true;
+        transferStatus.textContent = "Could not find a weight in the Android app's ASCII reading.";
+      }
+    };
+
     function onSerialLineReceived(line) {
       // Log raw ASCII line so you can inspect your scale's exact format
       const logEntry = document.createElement("div");
@@ -252,7 +279,9 @@
         weightDisplay.textContent = numericVal;
         unitDisplay.textContent = unit;
         saveBtn.disabled = false;
+        return true;
       }
+      return false;
     }
 
     // Saved readings remain in this browser on this device.
